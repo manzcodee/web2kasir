@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Kasir - Realtime Orders</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .row-enter { animation: highlight 2s ease-out; }
+        @keyframes highlight {
+            0% { background-color: #fef08a; } /* yellow-200 */
+            100% { background-color: transparent; }
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen overflow-hidden flex">
+
+    <!-- Overlay to unlock audio (Browser Policy Requirement) -->
+    <div id="startOverlay" class="fixed inset-0 bg-gray-900 bg-opacity-90 z-50 flex flex-col items-center justify-center text-white">
+        <i class="fas fa-cash-register text-6xl mb-6 text-green-400"></i>
+        <h1 class="text-3xl font-bold mb-2">Sistem Kasir Real-time</h1>
+        <p class="mb-8 text-gray-300">Klik tombol di bawah untuk mengaktifkan notifikasi suara dan memulai.</p>
+        <button onclick="startSystem()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-lg shadow-lg text-xl transition transform hover:scale-105">
+            Mulai Buka Kasir
+        </button>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-900 text-white flex flex-col transition-all duration-300 hidden md:flex">
+        <div class="h-16 flex items-center px-6 border-b border-gray-800">
+            <i class="fas fa-utensils text-green-400 text-2xl mr-3"></i>
+            <span class="text-xl font-bold tracking-wider">RestoPOS</span>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            <a href="#" class="flex items-center px-4 py-3 bg-green-600 text-white rounded-lg shadow-md">
+                <i class="fas fa-concierge-bell w-6"></i>
+                <span class="font-medium">Pesanan Aktif</span>
+                <span class="ml-auto bg-white text-green-600 py-0.5 px-2 rounded-full text-xs font-bold" id="sidebarBadge">0</span>
+            </a>
+            <a href="#" class="flex items-center px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-lg transition-colors">
+                <i class="fas fa-history w-6"></i>
+                <span class="font-medium">Riwayat</span>
+            </a>
+            <a href="#" class="flex items-center px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-lg transition-colors">
+                <i class="fas fa-chart-line w-6"></i>
+                <span class="font-medium">Laporan</span>
+            </a>
+            <a href="#" class="flex items-center px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-lg transition-colors">
+                <i class="fas fa-cog w-6"></i>
+                <span class="font-medium">Pengaturan</span>
+            </a>
+        </nav>
+        <div class="p-4 border-t border-gray-800">
+            <div class="flex items-center">
+                <img src="https://ui-avatars.com/api/?name=Admin+Kasir&background=10b981&color=fff" alt="User" class="w-10 h-10 rounded-full">
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-white">Admin Kasir</p>
+                    <p class="text-xs text-gray-400 flex items-center">
+                        <span class="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span> Online
+                    </p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+        <!-- Header -->
+        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
+            <div class="flex items-center">
+                <button class="md:hidden text-gray-500 hover:text-gray-700 mr-4">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <h1 class="text-2xl font-bold text-gray-800">Dashboard Kasir</h1>
+                <span class="ml-4 px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full border border-blue-200">
+                    <i class="fas fa-tag mr-1"></i> contoh dashboard admin
+                </span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-right hidden sm:block">
+                    <p class="text-sm font-bold text-gray-800" id="currentDate"></p>
+                    <p class="text-xs text-gray-500" id="currentTime"></p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <div class="flex-1 overflow-y-auto p-6 bg-gray-50">
+            
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 mb-1">Pesanan Menunggu</p>
+                        <h3 class="text-3xl font-bold text-gray-800" id="statPending">0</h3>
+                    </div>
+                    <div class="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center text-xl">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 mb-1">Pesanan Selesai (Hari Ini)</p>
+                        <h3 class="text-3xl font-bold text-gray-800" id="statCompleted">0</h3>
+                    </div>
+                    <div class="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xl">
+                        <i class="fas fa-check-double"></i>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 mb-1">Status Sistem</p>
+                        <h3 class="text-lg font-bold text-green-500 flex items-center">
+                            Menerima Pesanan <span class="ml-2 relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></span>
+                        </h3>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xl">
+                        <i class="fas fa-wifi"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Table Section -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[calc(100vh-250px)]">
+                <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-list-ul mr-2 text-gray-500"></i> Daftar Pesanan Baru</h2>
+                </div>
+                <div class="flex-1 overflow-auto">
+                    <table class="min-w-full divide-y divide-gray-200 w-full text-left">
+                        <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                            <tr>
+                                <th scope="col" class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-24">No. Antrean</th>
+                                <th scope="col" class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Nama Makanan</th>
+                                <th scope="col" class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Meja / Alamat</th>
+                                <th scope="col" class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Waktu Pesan</th>
+                                <th scope="col" class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center w-64">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Rows will be populated by JS -->
+                        </tbody>
+                    </table>
+                    
+                    <!-- Empty State -->
+                    <div id="emptyState" class="flex flex-col items-center justify-center py-16 text-gray-500">
+                        <i class="fas fa-clipboard-list text-6xl mb-4 text-gray-300"></i>
+                        <p class="text-lg font-medium">Belum ada pesanan baru.</p>
+                        <p class="text-sm">Menunggu data masuk dari pelanggan...</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Audio Element for Notification -->
+    <audio id="notifSound" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Firebase SDK Config -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCDyzzfpNlewiaF3BLhAtsdSjzWG7oofSk",
+            authDomain: "toko-d6785.firebaseapp.com",
+            projectId: "toko-d6785",
+            storageBucket: "toko-d6785.firebasestorage.app",
+            messagingSenderId: "603606672349",
+            appId: "1:603606672349:web:05ca80eadd4c688dc28c34",
+            measurementId: "G-2B9GLKWQDD"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Ini agar fungsi Firebase bisa dipanggil oleh tombol di website kamu
+        window.db = db;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.onSnapshot = onSnapshot;
+        window.updateDoc = updateDoc;
+        window.doc = doc;
+        window.serverTimestamp = serverTimestamp;
+
+        // 1. Tentukan koleksi mana yang mau dipantau (orders)
+        const q = query(collection(window.db, "orders"), orderBy("waktu", "desc"));
+
+        // 2. Fungsi 'onSnapshot' inilah si ANTENA otomatisnya
+        onSnapshot(q, (snapshot) => {
+            // Setiap kali ada pesanan baru di Firebase, bagian ini akan jalan
+            console.log("Ada update data pesanan!");
+            
+            // Ambil semua data pesanan dari Firebase
+            const dataPesanan = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            // Tampilkan data ini ke layar Kasir
+            if (typeof window.updateTampilanKasir === 'function') {
+                window.updateTampilanKasir(dataPesanan); 
+            }
+        });
+    </script>
+
+    <script>
+        // --- UI & Utility Functions ---
+        
+        // Clock
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }, 1000);
+
+        // Audio unlock
+        function startSystem() {
+            document.getElementById('startOverlay').classList.add('hidden');
+            const audio = document.getElementById('notifSound');
+            audio.volume = 0; // Play silently once to unlock
+            audio.play().then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.volume = 1; // Reset volume for real notifications
+            }).catch(e => console.log("Audio unlock failed", e));
+        }
+
+        function playNotificationSound() {
+            const audio = document.getElementById('notifSound');
+            audio.currentTime = 0;
+            audio.play().catch(e => console.error("Error playing sound:", e));
+        }
+
+        // --- Data State ---
+        let orders = [];
+        let completedCount = 0;
+
+        // --- Data Processor ---
+        window.updateTampilanKasir = function(dataPesanan) {
+            const previousOrderIds = orders.map(o => o.id);
+            
+            // Pisahkan pesanan aktif dan yang sudah selesai
+            const activeOrders = dataPesanan.filter(o => o.status !== "Selesai");
+            completedCount = dataPesanan.filter(o => o.status === "Selesai").length;
+            
+            let hasNew = false;
+            
+            orders = activeOrders.map(dp => {
+                const isNew = !previousOrderIds.includes(dp.id);
+                if (isNew) hasNew = true;
+                
+                // Format waktu dari Firestore
+                let timeStr = '-';
+                if (dp.waktu && typeof dp.waktu.toDate === 'function') {
+                    timeStr = dp.waktu.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                } else if (dp.waktu) {
+                    timeStr = new Date(dp.waktu).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                }
+
+                return {
+                    id: dp.id,
+                    queueNumber: dp.nomorAntrean || dp.queueNumber || '-',
+                    items: dp.pesanan || dp.items || '-',
+                    notes: dp.catatan || dp.notes || '',
+                    location: dp.meja || dp.lokasi || dp.location || '-',
+                    time: timeStr,
+                    isNew: isNew
+                };
+            });
+
+            // Mainkan notifikasi jika ada pesanan baru masuk (kecuali saat load pertama)
+            if (hasNew && previousOrderIds.length > 0) {
+                playNotificationSound();
+            }
+
+            renderOrders();
+        };
+
+        // --- Render Logic ---
+        function renderOrders() {
+            const tbody = document.getElementById('ordersTableBody');
+            const emptyState = document.getElementById('emptyState');
+            
+            tbody.innerHTML = '';
+            
+            if (orders.length === 0) {
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+            } else {
+                emptyState.classList.add('hidden');
+                emptyState.classList.remove('flex');
+                
+                orders.forEach(order => {
+                    const tr = document.createElement('tr');
+                    tr.id = `row-${order.id}`;
+                    tr.className = 'hover:bg-gray-50 transition-colors duration-150';
+                    if(order.isNew) {
+                        tr.classList.add('row-enter');
+                        order.isNew = false; 
+                    }
+
+                    tr.innerHTML = `
+                        <td class="px-6 py-5 whitespace-nowrap">
+                            <span class="px-3 py-1 inline-flex text-sm leading-5 font-bold rounded-full bg-gray-800 text-white">
+                                ${order.queueNumber}
+                            </span>
+                        </td>
+                        <td class="px-6 py-5">
+                            <div class="text-sm font-medium text-gray-900">${order.items}</div>
+                            ${order.notes ? `<div class="text-xs text-gray-500 mt-1"><i class="fas fa-comment-alt text-gray-400 mr-1"></i>${order.notes}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-5 whitespace-nowrap">
+                            <div class="flex items-center text-sm text-gray-900 font-medium">
+                                <i class="fas ${order.location && order.location.toLowerCase().includes('meja') ? 'fa-chair text-blue-500' : 'fa-motorcycle text-orange-500'} mr-2"></i>
+                                ${order.location}
+                            </div>
+                        </td>
+                        <td class="px-6 py-5 whitespace-nowrap text-sm text-gray-500 font-medium">
+                            ${order.time}
+                        </td>
+                        <td class="px-6 py-5 whitespace-nowrap text-center">
+                            <button onclick="selesaikanPesanan('${order.id}')" 
+                                class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 flex items-center justify-center text-sm uppercase tracking-wide">
+                                <i class="fas fa-check-circle mr-2 text-lg"></i> Selesaikan Pesanan
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Update Stats
+            document.getElementById('statPending').textContent = orders.length;
+            document.getElementById('sidebarBadge').textContent = orders.length;
+            document.getElementById('statCompleted').textContent = completedCount;
+        }
+
+        window.selesaikanPesanan = async function(orderId) {
+            try {
+                const orderRef = window.doc(window.db, "orders", orderId);
+                await window.updateDoc(orderRef, {
+                    status: "Selesai" // Ini yang akan memicu notif di Web 1
+                });
+                alert("Sinyal 'Selesai' terkirim ke customer!");
+            } catch (error) {
+                console.error("Error updating document: ", error);
+            }
+
+            // Efek UI
+            const row = document.getElementById(`row-${orderId}`);
+            if(row) {
+                row.style.transition = "all 0.3s ease";
+                row.style.opacity = "0";
+                row.style.transform = "translateX(20px)";
+            }
+
+            // The onSnapshot listener will automatically fetch the updated data and remove the order from the active list
+        }
+    </script>
+</body>
+</html>
